@@ -16,7 +16,9 @@ export class LoginPage extends BasePage {
   }
 
   async login(username: string, password: string) {
-        await this.page.getByLabel(/username/i).fill(username);
+        // The live login form labels this field "Email Address" (there is no separate
+        // "username" field), so the label match needs to accept both.
+        await this.page.getByLabel(/username|email/i).fill(username);
         await this.page.getByLabel(/password/i).fill(password);
         await this.page.getByRole('button', { name: /log ?in|sign ?in/i }).click();
   }

@@ -56,8 +56,9 @@ test.describe('Payer Management', () => {
                       await payerPage.goto();
                       const editedName = `${data.payerName} Edited`;
                       await payerPage.editPayer(data.payerName, editedName);
-                      await payerPage.searchPayer(editedName);
-                      const status = await payerPage.getStatusBadge(editedName);
+                      // The list keeps showing the last-published name until this edit is
+                      // itself approved - the edited name only appears once that happens.
+                      const status = await payerPage.getStatusBadge(data.payerName);
                       expect(isDraftStatus(status)).toBeTruthy();
                 });
 
@@ -75,20 +76,33 @@ test.describe('Payer Management', () => {
                       expect(isActiveStatus(status)).toBeFalsy();
                 });
 
-                test('should show a cascading impact warning when inactivating a payer', async ({ page, payerPage }) => {
+                test('should show a cascading impact warning when inactivating a payer', async ({ page, payerPage, approvalPage }) => {
+                      // "Inactivate" only appears once a payer is Active/Published - a freshly
+                      // created Draft record has no Inactivate action at all, so it must be sent
+                      // for approval and approved first.
                       const data = buildPayerData();
                       await payerPage.goto();
                       await payerPage.createPayer(data);
+                      await payerPage.sendForApproval(data.payerName);
+                      await approvalPage.goto();
+                      await approvalPage.openTab('Payer');
+                      await approvalPage.approve(data.payerName);
+                      await payerPage.goto();
                       await payerPage.searchPayer(data.payerName);
                       const row = payerPage.getRowByName(data.payerName);
                       await row.getByRole('button', { name: /inactivate/i }).click();
                       await expect(page.getByText(/inactivating this payer will also inactivate/i)).toBeVisible();
                 });
 
-                test('should require a mandatory reason before confirming payer inactivation', async ({ payerPage }) => {
+                test('should require a mandatory reason before confirming payer inactivation', async ({ payerPage, approvalPage }) => {
                       const data = buildPayerData();
                       await payerPage.goto();
                       await payerPage.createPayer(data);
+                      await payerPage.sendForApproval(data.payerName);
+                      await approvalPage.goto();
+                      await approvalPage.openTab('Payer');
+                      await approvalPage.approve(data.payerName);
+                      await payerPage.goto();
                       const isRequired = await payerPage.isInactivateReasonRequired(data.payerName);
                       expect(isRequired).toBeTruthy();
                 });

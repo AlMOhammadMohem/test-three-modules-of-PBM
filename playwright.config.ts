@@ -6,7 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './tests',
-    timeout: 60_000,
+    // Multi-step flows (create -> approve -> edit) can each hit the search-indexing lag
+    // documented in BasePage.searchUntilRowFound, so give the overall test enough room.
+    timeout: 90_000,
     expect: {
           timeout: 10_000,
     },

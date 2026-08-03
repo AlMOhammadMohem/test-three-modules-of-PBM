@@ -19,8 +19,10 @@ export function randomSuffix(length = 6): string {
     return Math.random().toString(36).substring(2, 2 + length);
 }
 
+// Checks the "Approval Status" badge (e.g. "v4 · Published"), not the separate Active/Inactive
+// enabled-flag column - a record is only "active" in the approval-workflow sense once published.
 export function isActiveStatus(status: string): boolean {
-    return status.trim().toLowerCase() === 'active';
+    return status.toLowerCase().includes('published');
 }
 
 export function isDraftStatus(status: string): boolean {
