@@ -42,7 +42,7 @@ export class BasePage {
    * earlier by this same test can take a few seconds to become server-side searchable
    * (confirmed by direct inspection: records from prior runs are searchable instantly).
    */
-  async searchUntilRowFound(placeholder: RegExp, name: string, timeoutMs = 45_000) {
+  async searchUntilRowFound(placeholder: RegExp, name: string, timeoutMs = 60_000) {
         const deadline = Date.now() + timeoutMs;
         while (Date.now() < deadline) {
               // Re-filling the identical value is a no-op (no input/change event fires), which
@@ -75,5 +75,25 @@ export class BasePage {
         const badge = this.getRowByName(name).locator('td', { hasText: /v\d+\s*·/ });
         await expect(badge).toBeVisible({ timeout: 15_000 });
         return badge.innerText();
+  }
+
+  /** Selects an option from a PrimeNG combobox filter (Type/Status/Payer, etc). */
+  async filterByDropdown(comboboxName: RegExp, optionText: string) {
+        await this.page.getByRole('combobox', { name: comboboxName }).click();
+        await this.page.getByRole('option', { name: optionText, exact: true }).click();
+  }
+
+  /** Removes an active filter chip by its visible text (the chip shows the text plus a "remove" button). */
+  async clearFilterChip(chipText: string) {
+        await this.page
+              .locator('div')
+              .filter({ has: this.page.getByText(chipText, { exact: true }) })
+              .getByRole('button', { name: /remove/i })
+              .first()
+              .click();
+  }
+
+  async goToPage(pageNumber: number) {
+        await this.page.getByRole('button', { name: String(pageNumber), exact: true }).click();
   }
 }

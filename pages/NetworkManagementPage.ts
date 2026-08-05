@@ -20,6 +20,12 @@ export class NetworkManagementPage extends BasePage {
         await this.page.getByRole('button', { name: /add network/i }).click();
   }
 
+  async cancelAddNetworkWizard() {
+        await this.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        // Cancelling with unsaved field values triggers a confirmation dialog first.
+        await this.page.getByRole('button', { name: 'Discard Changes' }).click();
+  }
+
   /** Selects an option from a PrimeNG dropdown that is currently open. */
   private async selectDropdownOption(optionText: string) {
         await this.page.getByRole('option', { name: optionText, exact: true }).click()
@@ -88,15 +94,26 @@ export class NetworkManagementPage extends BasePage {
         await this.getRowByName(name).getByRole('button', { name: 'View', exact: true }).click();
   }
 
-  async assignFacility(facilityLabel: string) {
+  /** Opens the Assign Facilities drawer and, if the given facility is in the assignable
+   *  pharmacies list, assigns it. Returns whether it was actually assigned - the live
+   *  environment's facility pool is small and license-expiry-gated, so a named facility
+   *  (e.g. one with an expired license) can legitimately be unavailable at any given time. */
+  async assignFacility(facilityLabel: string): Promise<boolean> {
         // The detail page's section switcher renders as plain buttons, not ARIA tabs.
         await this.page.getByRole('button', { name: /assigned facilities/i }).click();
         await this.page.getByRole('button', { name: /assign facilities/i }).click();
         // The "Pharmacies" field is a PrimeNG multiselect - it must be clicked open before its
         // options become visible; the underlying combobox input itself is hidden/unclickable.
         await this.page.getByText('Select pharmacies to assign').click();
-        await this.page.getByRole('option', { name: new RegExp(facilityLabel) }).click();
+        const option = this.page.getByRole('option', { name: new RegExp(facilityLabel) });
+        if (!(await option.isVisible().catch(() => false))) {
+              await this.page.keyboard.press('Escape');
+              await this.page.getByRole('button', { name: /^cancel$/i }).click();
+              return false;
+        }
+        await option.click();
         await this.page.getByRole('button', { name: /^assign$/i }).click();
+        return true;
   }
 
   async hasPayerFieldOnCreate(): Promise<boolean> {
@@ -104,6 +121,55 @@ export class NetworkManagementPage extends BasePage {
         const count = await this.page.getByLabel(/^payer$/i).count();
         await this.page.keyboard.press('Escape');
         return count > 0;
+  }
+
+  /** Removes a facility from a network's "Assigned Facilities" tab. Assumes that tab is
+   *  already open (assignFacility leaves it open, and openNetworkDetail lands on Overview,
+   *  so callers navigate to the tab themselves first). */
+  async unassignFacility(facilityLabel: string) {
+        const row = this.page.getByRole('row', { name: new RegExp(facilityLabel) });
+        await row.getByRole('button', { name: /^remove$/i }).click();
+        // "Delete facility" is a real dialog, unlike the drawer-based Inactivate panels.
+        await this.confirmDialog('Remove');
+        await expect(row).not.toBeVisible({ timeout: 10_000 });
+  }
+
+  /** Deletes a network from the list and confirms the row is actually gone. */
+  async deleteNetwork(name: string) {
+        await this.searchNetwork(name);
+        const row = this.getRowByName(name);
+        await row.getByRole('button', { name: /^delete$/i }).click();
+        await this.confirmDialog('Yes');
+        await expect(this.getRowByName(name)).not.toBeVisible({ timeout: 10_000 });
+  }
+
+  async filterByType(type: string) {
+        await this.filterByDropdown(/all types/i, type);
+  }
+
+  async filterByStatus(status: string) {
+        await this.filterByDropdown(/all statuses/i, status);
+  }
+
+  async filterByPayer(payerName: string) {
+        await this.filterByDropdown(/all payers/i, payerName);
+  }
+
+  // Detail-page tabs render as plain buttons, not ARIA tabs.
+  async openVersionHistoryTab() {
+        await this.page.getByRole('button', { name: /^version history$/i }).click();
+  }
+
+  async openAuditHistoryTab() {
+        await this.page.getByRole('button', { name: /^audit history$/i }).click();
+  }
+
+  async openLinkedPoliciesTab() {
+        await this.page.getByRole('button', { name: /linked policies/i }).click();
+  }
+
+  async openAssignedFacilitiesTab() {
+        await this.page.getByRole('button', { name: /assigned facilities/i }).click();
   }
 
   async getSummaryCounters() {

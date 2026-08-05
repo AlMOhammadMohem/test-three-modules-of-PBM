@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { APP_URLS } from '../constants/urls';
 
@@ -26,6 +26,17 @@ export class LoginPage extends BasePage {
   async isLoggedIn(): Promise<boolean> {
         await this.page.waitForURL((url) => !url.pathname.includes('login'), { timeout: 15_000 }).catch(() => undefined);
         return !this.page.url().includes('/login');
+  }
+
+  /** Confirms invalid credentials were rejected with the app's real error banner text. */
+  async expectLoginError() {
+        await expect(this.page.getByText(/invalid login attempt/i)).toBeVisible({ timeout: 10_000 });
+  }
+
+  async logout() {
+        await this.page.getByRole('button', { name: /user menu/i }).click();
+        await this.page.getByRole('menuitem', { name: /logout/i }).click();
+        await this.page.waitForURL((url) => url.pathname.includes('login'), { timeout: 15_000 });
   }
 
   async loginIfNeeded(username: string, password: string) {

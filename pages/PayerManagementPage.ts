@@ -20,6 +20,12 @@ export class PayerManagementPage extends BasePage {
         await this.page.getByRole('button', { name: /add payer/i }).click();
   }
 
+  async cancelAddPayerWizard() {
+        await this.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        // Cancelling with unsaved field values triggers a confirmation dialog first.
+        await this.page.getByRole('button', { name: 'Discard Changes' }).click();
+  }
+
   /** Selects an option from a PrimeNG dropdown that is currently open. */
   private async selectDropdownOption(optionText: string) {
         await this.page.getByRole('option', { name: optionText, exact: true }).click()
@@ -158,10 +164,64 @@ export class PayerManagementPage extends BasePage {
         return this.page.getByText(/required/i).isVisible();
   }
 
+  /** Deletes a payer from the list and confirms the row is actually gone (not just that the
+   *  toast fired, which fades too fast to reliably assert on). */
+  async deletePayer(name: string) {
+        await this.searchPayer(name);
+        const row = this.getRowByName(name);
+        await row.getByRole('button', { name: /^delete$/i }).click();
+        // "Delete Payer" is a real dialog (unlike "Inactivate Payer", which is a drawer).
+        await this.confirmDialog('Yes');
+        await expect(this.getRowByName(name)).not.toBeVisible({ timeout: 10_000 });
+  }
+
+  /** Navigates to the read-only payer detail page via the row's "View" action. */
+  async viewPayerDetail(name: string) {
+        await this.searchPayer(name);
+        await this.getRowByName(name).getByRole('button', { name: 'View', exact: true }).click();
+  }
+
+  /** Reactivates an Inactive payer - only available once a payer has actually been published
+   *  and inactivated (a fresh Draft has no Inactivate/Activate action at all). */
+  async reactivatePayer(name: string) {
+        await this.searchPayer(name);
+        const row = this.getRowByName(name);
+        // The button carries an icon in its accessible name (e.g. "✓ Activate"), and
+        // "Inactivate" also contains "activate", so match loosely but exclude that case.
+        await row.getByRole('button', { name: /(?<!in)activate/i }).click();
+        await this.confirmDialog('Activate');
+  }
+
+  async filterByType(type: string) {
+        await this.filterByDropdown(/all types/i, type);
+  }
+
+  async filterByStatus(status: string) {
+        await this.filterByDropdown(/all statuses/i, status);
+  }
+
   async getSummaryCounters() {
         return {
                 total: await this.page.getByText(/total payers/i).innerText(),
                 active: await this.page.getByText(/^active$/i).first().innerText(),
         };
+  }
+
+  // Detail-page tabs (Overview/Linked Networks/Linked Policies/Version History/Audit History)
+  // render as plain buttons, not ARIA tabs - same as Network's detail page.
+  async openVersionHistoryTab() {
+        await this.page.getByRole('button', { name: /^version history$/i }).click();
+  }
+
+  async openAuditHistoryTab() {
+        await this.page.getByRole('button', { name: /^audit history$/i }).click();
+  }
+
+  async openLinkedNetworksTab() {
+        await this.page.getByRole('button', { name: /linked networks/i }).click();
+  }
+
+  async openLinkedPoliciesTab() {
+        await this.page.getByRole('button', { name: /linked policies/i }).click();
   }
 }
