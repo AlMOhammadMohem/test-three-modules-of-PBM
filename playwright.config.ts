@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import 'dotenv/config';
 
 /**
  * Playwright configuration for the PBM (Pharmacy Benefit Management) automation framework.
